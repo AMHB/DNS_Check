@@ -8,6 +8,9 @@ import subprocess
 import time
 import dns.resolver
 import statistics
+
+import matplotlib.pyplot as plt
+import numpy as np
 from typing import Dict, List, Tuple
 from tabulate import tabulate
 
@@ -193,8 +196,49 @@ def display_results(results: List[Dict]):
         best_dns = min(successful_dns, key=lambda x: x["dns_avg"])
         print(f"🏆 Fastest DNS Query: {best_dns['name']} ({best_dns['ip']}) - {best_dns['dns_avg']:.2f} ms")
     
-    print(f"\n✓ Successful ICMP Pings: {len(successful_ping)}/{len(results)}")
     print(f"✓ Successful DNS Queries: {len(successful_dns)}/{len(results)}")
+
+
+def generate_plot(results: List[Dict]):
+    """Generate a grouped bar chart of the results."""
+    print(f"\nGeneratig plot...")
+    
+    # Filter out failed tests for the plot, or treat them as 0/None
+    names = []
+    ping_times = []
+    dns_times = []
+    
+    for r in results:
+        names.append(r["name"])
+        # Use 0 for failed tests to show them on the graph (or skip, but better to show as missing/0)
+        # Using a small epsilon or 0 makes it clear. Let's use 0.
+        ping_times.append(r["ping_avg"] if r["ping_success"] else 0)
+        dns_times.append(r["dns_avg"] if r["dns_success"] else 0)
+        
+    x = np.arange(len(names))  # the label locations
+    width = 0.35  # the width of the bars
+    
+    fig, ax = plt.subplots(figsize=(12, 6))
+    rects1 = ax.bar(x - width/2, ping_times, width, label='ICMP Ping (Avg)')
+    rects2 = ax.bar(x + width/2, dns_times, width, label='DNS Query (Avg)')
+    
+    # Add some text for labels, title and custom x-axis tick labels, etc.
+    ax.set_ylabel('Time (ms)')
+    ax.set_title('DNS Server Performance Benchmark')
+    ax.set_xticks(x, names)
+    ax.legend()
+    
+    # Rotate x labels for better readability
+    plt.xticks(rotation=45, ha='right')
+    
+    # Add a grid for easier reading
+    ax.grid(True, axis='y', linestyle='--', alpha=0.7)
+    
+    fig.tight_layout()
+    
+    filename = "dns_benchmark_results.png"
+    plt.savefig(filename)
+    print(f"✓ Plot saved to {filename}")
 
 
 def main():
@@ -202,6 +246,7 @@ def main():
     try:
         results = test_all_servers()
         display_results(results)
+        generate_plot(results)
     except KeyboardInterrupt:
         print("\n\nTest interrupted by user.")
     except Exception as e:
